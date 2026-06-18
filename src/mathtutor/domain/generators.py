@@ -68,7 +68,7 @@ def _assert_self_verified(
     solve_steps: int,
 ) -> None:
     """Run verifier and difficulty checks."""
-    student = verifier.parse(problem.reference_answer)
+    student = verifier.parse(problem.reference_answer)   # parse("1") → Artifact(expr=Integer(1))
     judgment = verifier.accepts(student, problem.parsed_target)
 
     if not judgment.correct:

@@ -2,27 +2,24 @@
 
 import pytest
 from sympy import Eq, symbols, Rational
-
+from sympy import symbols, Eq
 from mathtutor.domain.verifiers.linear_equation import EquationVerifier
 from mathtutor.domain.verifiers.fraction import FractionVerifier
 from mathtutor.domain.verifiers.polynomial import PolynomialVerifier
 from mathtutor.domain.verifiers.inequality import InequalityVerifier
 from mathtutor.domain.verifiers.system import SystemVerifier
+from mathtutor.contracts import Target as _Target
 
 
-class Target:
-    """Lightweight stand-in for contracts.Target used in verifier tests.
+x, y = symbols('x y')
 
-    Verifiers read the expected answer via ``target.payload["answer"]``,
-    so the shim must expose a ``payload`` dict — not a bare attribute.
+def Target(answer, form=None, *, domain="expression"):
+    """Build a real contract Target for verifier tests.
+
+    Exposes `form` as a top-level field (matching contracts.Target) and the
+    answer under payload['answer'] — the two things verifiers actually read.
     """
-    def __init__(self, answer, form=None):
-        self.payload = {"answer": answer}
-        if form is not None:
-            self.payload["form"] = form
-
-
-x, y = symbols("x y")
+    return _Target(domain=domain, payload={"answer": answer}, form=form)
 
 
 def test_equation():

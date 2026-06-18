@@ -24,6 +24,7 @@ class FractionVerifier(Verifier):
         return gcd(abs(r.p), abs(r.q)) == 1
 
     def accepts(self, student: Artifact, target: Target) -> Judgment:
+        student = student.expr if isinstance(student, Artifact) else student
         try:
             s = self.canonical(student)
             t = self.canonical(target.payload["answer"])

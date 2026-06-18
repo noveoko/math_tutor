@@ -9,7 +9,9 @@ from sympy.sets.sets import Set
 
 from mathtutor.contracts import Verifier, Artifact, Canonical, Target, Judgment, ParseError
 from mathtutor.cas.parsing import parse_math
-
+from sympy import FiniteSet
+from sympy.sets.sets import Set
+from mathtutor.cas.equivalence import normalize_answer
 
 class EquationVerifier(Verifier):
     """Verifier for algebraic equations via exact solution-set equality."""
@@ -20,14 +22,18 @@ class EquationVerifier(Verifier):
         return parse_math(raw)
 
     def canonical(self, a: Artifact) -> Canonical:
-        if not isinstance(a, Eq):
-            raise ParseError("Expected equation")
-        symbol = next(iter(a.free_symbols), Symbol("x"))
-        return solveset(a, symbol, domain=S.Reals)
+        if isinstance(a, Eq):
+            symbol = next(iter(a.free_symbols), Symbol("x"))
+            return solveset(a, symbol, domain=S.Reals)
+        if isinstance(a, Set):
+            return a
+        return FiniteSet(a)        # bare value → singleton solution set {a}
 
     def accepts(self, student: Artifact, target: Target) -> Judgment:
+        student = student.expr if isinstance(student, Artifact) else student
+        answer = normalize_answer(self, target.payload["answer"])
         try:
-            target_set = self.canonical(target.payload["answer"])
+            target_set = self.canonical(answer)
             student_set = self.canonical(student)
         except ParseError:
             return Judgment(False, False, False, False, False, True, 1.0, {})

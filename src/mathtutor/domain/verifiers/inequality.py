@@ -22,6 +22,7 @@ class InequalityVerifier(Verifier):
         return solveset(a, symbol, domain=S.Reals)
 
     def accepts(self, student: Artifact, target: Target) -> Judgment:
+        student = student.expr if isinstance(student, Artifact) else student
         try:
             s = self.canonical(student)
             t = self.canonical(target.payload["answer"])

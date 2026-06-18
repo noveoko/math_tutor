@@ -1,7 +1,7 @@
 # mathtutor/tutoring/misconceptions.py
 
 from typing import Any, List
-from sympy import Expr, Eq, Add, Mul, Pow, Rel, simplify
+from sympy import Expr, Eq, Add, Mul, Pow, Rel, simplify, expand
 from mathtutor.contracts import BuggyRule
 
 
@@ -22,11 +22,8 @@ def exact_match(a: Any, b: Any) -> bool:
     if hasattr(a, 'lhs') and hasattr(b, 'lhs'):
         if isinstance(a, Eq) and a.lhs == b.rhs and a.rhs == b.lhs:
             return True
-        # If it's a relational or un-swapped Eq, we want structural match of sides.
         return False
         
-    # Fallback: check mathematical equivalence combined with structural bounds.
-    # We use a.equals(b) but restrict matched forms to have identical operation counts.
     try:
         if hasattr(a, 'equals') and hasattr(b, 'equals') and a.equals(b):
             return (a.count_ops() == b.count_ops()) and (len(a.args) == len(b.args))
@@ -94,7 +91,7 @@ class CancelTermAcrossAddition:
                             denom = p.base
                             for arg in add.args:
                                 if arg == denom:
-                                    return add - arg # Drops denominator and 'a'
+                                    return add - arg
             return expr
             
         try:
@@ -108,29 +105,58 @@ class CancelTermAcrossAddition:
 
 class ClearsFractionOneTerm:
     id = "clears_fraction_multiplying_only_one_term"
-    
-    def applies_to(self, previous: Any) -> bool:
-        return isinstance(previous, Eq) and (previous.lhs.has(Mul) or previous.rhs.has(Mul))
-        
-    def transform(self, previous: Any) -> List[Any]:
-        """Eq(A/C + B, D) -> Eq(A + B, D*C)"""
-        results = []
-        if not isinstance(previous, Eq):
-            return results
-            
-        for side, other in [(previous.lhs, previous.rhs), (previous.rhs, previous.lhs)]:
-            if side.is_Add:
-                for arg in side.args:
-                    if arg.is_Mul:
-                        pows = [a for a in arg.args if a.is_Pow and a.exp == -1]
-                        if pows:
-                            denom = pows[0].base
-                            buggy_arg = arg * denom
-                            buggy_side = side - arg + buggy_arg
-                            buggy_other = other * denom
-                            results.append(Eq(buggy_side, buggy_other))
-        return results
 
+    @staticmethod
+    def _denom_if_fraction(term):
+        """Return the denominator if `term` is a fractional Mul, else None.
+
+        Handles both SymPy representations:
+          - Mul(Rational(1, n), x)  — what SymPy actually produces for x/n
+          - Mul(x, Pow(n, -1))      — explicit inverse, rarely seen in practice
+        """
+        if not term.is_Mul:
+            return None
+        for a in term.args:
+            # Common case: Rational(p, q) with q > 1, e.g. Rational(1,2) for x/2
+            if a.is_Rational and not a.is_Integer and a.q > 1:
+                return a.q          # SymPy Integer denominator
+            # Explicit Pow(n, -1) case
+            if a.is_Pow and a.exp == -1:
+                return a.base
+        return None
+
+    def applies_to(self, previous: Any) -> bool:
+        return (
+            isinstance(previous, Eq)
+            and isinstance(previous.lhs, Add)
+            and any(self._denom_if_fraction(t) is not None
+                    for t in previous.lhs.args)
+        )
+
+    def transform(self, previous: Any) -> List[Any]:
+        """x/2 + y = 5  →  x + y = 10  (student multiplied only the fraction)"""
+        results = []
+        if not isinstance(previous, Eq) or not isinstance(previous.lhs, Add):
+            return results
+
+        lhs, rhs = previous.lhs, previous.rhs
+        lhs_terms = list(lhs.args)
+
+        for i, term in enumerate(lhs_terms):
+            denom = self._denom_if_fraction(term)
+            if denom is None:
+                continue
+            # Correct: multiply every term AND the RHS by denom
+            # Bug:     multiply only this fractional term (y stays as y, not 2y)
+            cleared_term = term * denom          # x/2 * 2  →  x
+            buggy_lhs = Add(*[
+                cleared_term if j == i else t
+                for j, t in enumerate(lhs_terms)
+            ])                                   # x + y  (y is unchanged)
+            buggy_rhs = rhs * denom              # 5 * 2  →  10
+            results.append(Eq(buggy_lhs, buggy_rhs))
+
+        return results
 
 class InequalityMultiplyNegativeNoFlip:
     id = "forgets_to_flip_inequality_on_negative_multiply"
@@ -142,7 +168,6 @@ class InequalityMultiplyNegativeNoFlip:
         """-x < 5 -> x < -5"""
         if isinstance(previous, Rel):
             try:
-                # Mimic multiplying by -1 without changing the relational operator
                 return [type(previous)(previous.lhs * -1, previous.rhs * -1)]
             except Exception:
                 pass
@@ -154,7 +179,7 @@ BUGGY_RULES: List[BuggyRule] = [
     MoveTermWithoutSignFlip(),
     CancelTermAcrossAddition(),
     ClearsFractionOneTerm(),
-    InequalityMultiplyNegativeNoFlip()
+    InequalityMultiplyNegativeNoFlip(),
 ]
 
 
@@ -184,16 +209,13 @@ def diagnose(previous: Any, student_line: Any, rules: List[BuggyRule] = None) ->
 def classify_error(previous: Any, student_line: Any) -> str:
     """
     Symptom-level fallback classification when exact misconception diagnosis fails.
-    Returns: "sign_error" | "off_by_one" | "dropped_root" | "unknown"
     """
     try:
         if isinstance(previous, Eq) and isinstance(student_line, Eq):
-            # Check for sign error on one of the sides
             if exact_match(previous.lhs * -1, student_line.lhs) or \
                exact_match(previous.rhs * -1, student_line.rhs):
                 return "sign_error"
                 
-            # Check for simple arithmetic off-by-one
             diff = simplify((previous.lhs - previous.rhs) - (student_line.lhs - student_line.rhs))
             if diff.is_number and abs(diff) == 1:
                 return "off_by_one"

@@ -32,7 +32,7 @@ class EquationVerifier(Verifier):
 
     def accepts(self, student: Artifact, target: Target) -> Judgment:
         try:
-            target_set = self.canonical(target.payload["answer"])
+            target_set = self.canonical(target.payload["answer"])   # canonical('1')
             student_set = self.canonical(student)
         except ParseError:
             return Judgment(False, False, False, False, False, True, 1.0, {})
@@ -78,8 +78,9 @@ class FractionVerifier(Verifier):
     def parse(self, raw: str) -> Artifact:
         return parse_math(raw)
 
-    def canonical(self, a: Artifact) -> Canonical:
-        return Rational(a)
+    def canonical(self, a):
+        if not isinstance(a, Eq):
+            raise ParseError("Expected equation")
 
     def _is_reduced(self, r: Rational) -> bool:
         return gcd(abs(r.p), abs(r.q)) == 1

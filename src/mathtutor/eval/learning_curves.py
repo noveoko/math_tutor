@@ -77,46 +77,23 @@ def _bce_loss_and_grad(
     n_students: int,
     n_kcs: int,
 ) -> tuple[float, np.ndarray]:
-    """Binary cross-entropy loss + gradient for AFM.
-
-    Parameter layout in *params* (flat vector, length = n_students + 2·n_kcs):
-
-        params[0 : n_students]              → β_s  (student abilities)
-        params[n_students : n_students+n_kcs] → δ_kc (KC easiness)
-        params[n_students+n_kcs :]           → γ_kc (KC learning rate)
-
-    Parameters
-    ----------
-    params:
-        Current parameter vector.
-    y:
-        Binary labels (1 = correct, 0 = incorrect), shape (N,).
-    student_idx, kc_idx, opp:
-        Integer index arrays, shape (N,), mapping each observation to the
-        corresponding student, KC, and opportunity count.
-    n_students, n_kcs:
-        Counts used to slice *params*.
-
-    Returns
-    -------
-    (loss, gradient)
-        Scalar loss and gradient vector with same shape as *params*.
-    """
+    """Binary cross-entropy loss + gradient for AFM."""
     beta  = params[:n_students]                        # (S,)
     delta = params[n_students : n_students + n_kcs]    # (K,)
     gamma = params[n_students + n_kcs :]               # (K,)
 
     # Logit for each observation
     z = beta[student_idx] + delta[kc_idx] + gamma[kc_idx] * opp   # (N,)
-    p = _sigma(z)                                                   # (N,)
+    p = _sigma(z)                                                 # (N,)
 
     # ---- Loss: mean binary cross-entropy ----
-    eps = 1e-12
-    loss = -np.mean(y * np.log(p + eps) + (1 - y) * np.log(1 - p + eps))
+    # Numerically stable BCE from logits avoids eps capping issues
+    loss_vec = np.maximum(z, 0) - y * z + np.log1p(np.exp(-np.abs(z)))
+    loss = float(np.mean(loss_vec))
 
     # ---- Gradient ----
     # ∂L/∂z_i = (p_i − y_i) / N
-    residual = (p - y) / len(y)                         # (N,)
+    residual = (p - y) / len(y)                                   # (N,)
 
     grad_beta  = np.zeros(n_students)
     grad_delta = np.zeros(n_kcs)
@@ -127,7 +104,7 @@ def _bce_loss_and_grad(
     np.add.at(grad_gamma, kc_idx,      residual * opp)
 
     grad = np.concatenate([grad_beta, grad_delta, grad_gamma])
-    return float(loss), grad
+    return loss, grad
 
 
 # ---------------------------------------------------------------------------

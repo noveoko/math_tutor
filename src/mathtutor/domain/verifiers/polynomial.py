@@ -3,11 +3,28 @@
 from __future__ import annotations
 
 from sympy import expand, factor, Mul, simplify
-
+import sympy as sp
+from sympy import FiniteSet, Eq
 from mathtutor.contracts import Verifier, Artifact, Canonical, Target, Judgment
 from mathtutor.cas.parsing import parse_math
+from mathtutor.cas.equivalence import value_equivalent
 
-
+def normalize_answer(verifier, answer_str: str):
+    """Parse and normalize answers for comparison (handles sets, equations, etc.)."""
+    try:
+        if isinstance(answer_str, str):
+            # Handle set notation like '{2, 2}' or '{-7, 0}'
+            if answer_str.startswith('{') and answer_str.endswith('}'):
+                content = answer_str[1:-1].strip()
+                if content:
+                    items = [sp.sympify(item.strip()) for item in content.split(',')]
+                    return FiniteSet(*items)
+            # Try parsing as sympy expression/equation
+            return sp.sympify(answer_str)
+        return answer_str
+    except Exception:
+        return answer_str  # fallback
+    
 class PolynomialVerifier(Verifier):
     """Verifier for polynomial equivalence and structural form."""
 
@@ -26,8 +43,10 @@ class PolynomialVerifier(Verifier):
         return factor(expr) == expr
 
     def accepts(self, student: Artifact, target: Target) -> Judgment:
+        student = student.expr if isinstance(student, Artifact) else student
+        answer = normalize_answer(self, target.payload["answer"])  # now defined
         try:
-            value_equivalent = simplify(student - target.payload["answer"]) == 0
+            ve = value_equivalent(student, answer)
         except Exception:
             return Judgment(False, False, False, False, False, True, 1.0, {})
 
@@ -41,9 +60,9 @@ class PolynomialVerifier(Verifier):
 
         return Judgment(
             True,
-            value_equivalent,
+            ve,
             form_ok,
-            value_equivalent and form_ok,
+            ve and form_ok,
             False,
             True,
             1.0,

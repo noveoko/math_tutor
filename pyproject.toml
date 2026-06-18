@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.4.6",
     "pytest>=9.1.0",
+    "scipy>=1.17.1",
     "sympy",
 ]
 

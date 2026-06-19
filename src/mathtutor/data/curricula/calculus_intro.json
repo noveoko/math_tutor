@@ -1,0 +1,39 @@
+{
+  "subject": "calculus_intro",
+  "knowledge_components": [
+    { "id": "u_substitution", "name": "u-Substitution",
+      "prerequisites": ["definite_integral", "chain_rule"],
+      "verifier_domain": "integration", "difficulty_band": 3,
+      "generators": ["gen_u_substitution"] },
+
+    { "id": "limits_intro", "name": "Introduction to Limits",
+      "prerequisites": [], "verifier_domain": "limits",
+      "difficulty_band": 1, "generators": ["gen_limits_intro"] },
+
+    { "id": "definite_integral", "name": "The Definite Integral",
+      "prerequisites": ["antiderivatives", "continuity"],
+      "verifier_domain": "integration", "difficulty_band": 3,
+      "generators": ["gen_definite_integral"] },
+
+    { "id": "chain_rule", "name": "The Chain Rule",
+      "prerequisites": ["power_rule"], "verifier_domain": "differentiation",
+      "difficulty_band": 2, "generators": ["gen_chain_rule"] },
+
+    { "id": "continuity", "name": "Continuity",
+      "prerequisites": ["limits_intro"], "verifier_domain": "limits",
+      "difficulty_band": 2, "generators": ["gen_continuity"] },
+
+    { "id": "derivative_definition", "name": "Derivative from First Principles",
+      "prerequisites": ["limits_intro"], "verifier_domain": "differentiation",
+      "difficulty_band": 2, "generators": ["gen_derivative_definition"] },
+
+    { "id": "power_rule", "name": "The Power Rule",
+      "prerequisites": ["derivative_definition"],
+      "verifier_domain": "differentiation", "difficulty_band": 1,
+      "generators": ["gen_power_rule"] },
+
+    { "id": "antiderivatives", "name": "Antiderivatives",
+      "prerequisites": ["power_rule"], "verifier_domain": "integration",
+      "difficulty_band": 2, "generators": ["gen_antiderivatives"] }
+  ]
+}

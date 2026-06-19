@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Dict, List, Set
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Set
 
 from mathtutor.contracts import KnowledgeComponent
 
@@ -16,14 +17,35 @@ class Curriculum:
 
     Nodes are KCs keyed by `kc.id`.
     Edges point from prerequisite -> dependent.
+
+    The graph is subject-agnostic: it stores only ids and prerequisite edges,
+    so the same scheduling / mastery machinery teaches algebra, calculus, trig,
+    probability, or anything else. Author a subject as data and load it with
+    :meth:`from_json_file` / :meth:`from_json` / :meth:`from_dict`.
     """
 
-    def __init__(self, kcs: List[KnowledgeComponent] | None = None) -> None:
+    def __init__(
+        self,
+        kcs: List[KnowledgeComponent] | None = None,
+        *,
+        subject: str | None = None,
+    ) -> None:
         self._kcs: Dict[str, KnowledgeComponent] = {}
+        self.subject = subject
 
         if kcs:
             for kc in kcs:
                 self.add(kc)
+
+    @property
+    def kcs(self) -> List[KnowledgeComponent]:
+        """KCs in insertion order (prerequisite-shallow first).
+
+        This is the public iterable that ``learner.scheduling.select_next`` and
+        ``learner.bkt.propagate`` consume. They read only ``.id`` and
+        ``.prerequisites`` from each element.
+        """
+        return list(self._kcs.values())
 
     def add(self, kc: KnowledgeComponent) -> None:
         """
@@ -138,13 +160,239 @@ class Curriculum:
                 ready.append(kc_id)
         return ready
 
+    # ------------------------------------------------------------------
+    # Data-driven construction
+    # ------------------------------------------------------------------
+    #
+    # Authoring format (JSON or an equivalent Python dict)
+    # ----------------------------------------------------
+    # Either a bare list of KC objects, or a wrapper with metadata:
+    #
+    #   {
+    #     "subject": "calculus",
+    #     "knowledge_components": [
+    #       {
+    #         "id": "limits_intro",               # REQUIRED, unique, non-empty
+    #         "name": "Introduction to Limits",   # optional (defaults to id)
+    #         "prerequisites": [],                # optional (defaults to [])
+    #         "verifier_domain": "limits",        # optional (defaults to "")
+    #         "difficulty_band": 1,               # optional int (defaults to 1)
+    #         "generators": ["gen_limits_intro"]  # optional; string or list
+    #       },
+    #       ...
+    #     ]
+    #   }
+    #
+    # KCs may be listed in any order; the loader sorts them so each
+    # prerequisite is inserted before its dependents, and raises
+    # CurriculumError on a cycle, an unknown prerequisite, or a duplicate id.
+
+    @classmethod
+    def from_dict(
+        cls,
+        data: Dict[str, Any] | List[Any],
+        *,
+        subject: str | None = None,
+    ) -> "Curriculum":
+        """Build a Curriculum from a parsed dict (or bare list of KC dicts)."""
+        if isinstance(data, list):
+            raw_kcs: Any = data
+            meta_subject = subject
+        elif isinstance(data, dict):
+            raw_kcs = data.get("knowledge_components")
+            if raw_kcs is None:
+                raw_kcs = data.get("kcs")
+            if raw_kcs is None:
+                raise CurriculumError(
+                    "Curriculum data must contain 'knowledge_components' (or 'kcs')."
+                )
+            meta_subject = subject or data.get("subject") or data.get("name")
+        else:
+            raise CurriculumError(
+                f"Curriculum data must be a dict or list, got {type(data).__name__}."
+            )
+
+        if not isinstance(raw_kcs, list):
+            raise CurriculumError("'knowledge_components' must be a list.")
+
+        parsed = [cls._kc_from_dict(item, index=i) for i, item in enumerate(raw_kcs)]
+
+        # Up-front validation gives clearer errors than add()'s incremental checks.
+        ids = [kc.id for kc in parsed]
+        dupes = sorted({x for x in ids if ids.count(x) > 1})
+        if dupes:
+            raise CurriculumError(f"Duplicate KC id(s): {dupes}")
+
+        id_set = set(ids)
+        for kc in parsed:
+            unknown = [p for p in kc.prerequisites if p not in id_set]
+            if unknown:
+                raise CurriculumError(
+                    f"KC '{kc.id}' references unknown prerequisites: {unknown}"
+                )
+
+        # add() requires prerequisites to exist first, so order before inserting.
+        ordered = cls._dependency_order(parsed)
+
+        curriculum = cls(subject=meta_subject)
+        for kc in ordered:
+            curriculum.add(kc)
+        return curriculum
+
+    @classmethod
+    def from_json(cls, text: str, *, subject: str | None = None) -> "Curriculum":
+        """Build a Curriculum from a JSON string."""
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise CurriculumError(f"Invalid JSON: {exc}") from exc
+        return cls.from_dict(data, subject=subject)
+
+    @classmethod
+    def from_json_file(
+        cls,
+        path: str | Path,
+        *,
+        subject: str | None = None,
+    ) -> "Curriculum":
+        """Build a Curriculum from a JSON file on disk.
+
+        If no subject is given (and none is in the file), the file stem is used.
+        """
+        p = Path(path)
+        try:
+            text = p.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise CurriculumError(
+                f"Could not read curriculum file {str(path)!r}: {exc}"
+            ) from exc
+        return cls.from_json(text, subject=subject or p.stem)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to a plain dict (round-trips through :meth:`from_dict`)."""
+        return {
+            "subject": self.subject,
+            "knowledge_components": [
+                {
+                    "id": kc.id,
+                    "name": kc.name,
+                    "prerequisites": list(kc.prerequisites),
+                    "verifier_domain": kc.verifier_domain,
+                    "difficulty_band": kc.difficulty_band,
+                    "generators": list(kc.generators),
+                }
+                for kc in self.kcs
+            ],
+        }
+
+    def to_json(self, *, indent: int = 2) -> str:
+        """Serialize to a JSON string."""
+        return json.dumps(self.to_dict(), indent=indent)
+
+    # ------------------------------------------------------------------
+    # Internal helpers for the loaders
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _kc_from_dict(item: Any, *, index: int) -> KnowledgeComponent:
+        """Validate one KC dict and build a contract-correct KnowledgeComponent."""
+        if not isinstance(item, dict):
+            raise CurriculumError(
+                f"KC at position {index} must be an object, got {type(item).__name__}."
+            )
+
+        kc_id = item.get("id")
+        if not isinstance(kc_id, str) or not kc_id.strip():
+            raise CurriculumError(
+                f"KC at position {index} is missing a non-empty string 'id'."
+            )
+
+        prereqs = item.get("prerequisites", [])
+        if not isinstance(prereqs, list) or not all(isinstance(p, str) for p in prereqs):
+            raise CurriculumError(
+                f"KC '{kc_id}': 'prerequisites' must be a list of strings."
+            )
+
+        generators = item.get("generators", [])
+        if isinstance(generators, str):
+            generators = [generators]  # tolerate a single string for convenience
+        if not isinstance(generators, list) or not all(
+            isinstance(g, str) for g in generators
+        ):
+            raise CurriculumError(
+                f"KC '{kc_id}': 'generators' must be a string or a list of strings."
+            )
+
+        band = item.get("difficulty_band", 1)
+        # bool is a subclass of int — reject it explicitly.
+        if not isinstance(band, int) or isinstance(band, bool):
+            raise CurriculumError(
+                f"KC '{kc_id}': 'difficulty_band' must be an integer."
+            )
+
+        name = item.get("name", kc_id)
+        if not isinstance(name, str):
+            raise CurriculumError(f"KC '{kc_id}': 'name' must be a string.")
+
+        verifier_domain = item.get("verifier_domain", "")
+        if not isinstance(verifier_domain, str):
+            raise CurriculumError(
+                f"KC '{kc_id}': 'verifier_domain' must be a string."
+            )
+
+        return KnowledgeComponent(
+            id=kc_id,
+            name=name,
+            prerequisites=list(prereqs),
+            verifier_domain=verifier_domain,
+            difficulty_band=band,
+            generators=list(generators),
+        )
+
+    @staticmethod
+    def _dependency_order(
+        kcs: List[KnowledgeComponent],
+    ) -> List[KnowledgeComponent]:
+        """Order KCs so every prerequisite precedes its dependents.
+
+        Stable within each pass (preserves authoring order among independent
+        KCs). Raises CurriculumError if no progress can be made, which means a
+        cycle (prerequisites are guaranteed to exist by the caller).
+        """
+        inserted: Set[str] = set()
+        ordered: List[KnowledgeComponent] = []
+        remaining = list(kcs)
+
+        while remaining:
+            progressed = False
+            next_remaining: List[KnowledgeComponent] = []
+            for kc in remaining:
+                if all(p in inserted for p in kc.prerequisites):
+                    ordered.append(kc)
+                    inserted.add(kc.id)
+                    progressed = True
+                else:
+                    next_remaining.append(kc)
+            remaining = next_remaining
+            if not progressed:
+                stuck = sorted(kc.id for kc in remaining)
+                raise CurriculumError(
+                    f"Cycle detected among knowledge components: {stuck}"
+                )
+
+        return ordered
+
 
 def build_sample_curriculum() -> Curriculum:
     """
     Build a small sample curriculum:
     fractions -> equations -> quadratics
+
+    Every KnowledgeComponent matches the contract in
+    ``contracts.KnowledgeComponent``: ``generators`` is a list (plural) and
+    ``difficulty_band`` is required.
     """
-    curriculum = Curriculum()
+    curriculum = Curriculum(subject="intro_algebra")
 
     curriculum.add(
         KnowledgeComponent(
@@ -152,7 +400,8 @@ def build_sample_curriculum() -> Curriculum:
             name="Fraction Basics",
             prerequisites=[],
             verifier_domain="fractions",
-            generator="generate_fraction_basics",
+            difficulty_band=1,
+            generators=["generate_fraction_basics"],
         )
     )
 
@@ -162,7 +411,8 @@ def build_sample_curriculum() -> Curriculum:
             name="Fraction Operations",
             prerequisites=["fraction_basics"],
             verifier_domain="fractions",
-            generator="generate_fraction_operations",
+            difficulty_band=1,
+            generators=["fraction_addition"],  # real registered generator
         )
     )
 
@@ -172,7 +422,8 @@ def build_sample_curriculum() -> Curriculum:
             name="Simplify Expressions",
             prerequisites=["fraction_operations"],
             verifier_domain="algebraic_simplification",
-            generator="generate_simplify_expressions",
+            difficulty_band=2,
+            generators=["generate_simplify_expressions"],
         )
     )
 
@@ -182,7 +433,8 @@ def build_sample_curriculum() -> Curriculum:
             name="One-Step Linear Equations",
             prerequisites=["simplify_expressions"],
             verifier_domain="linear_equations",
-            generator="generate_linear_one_step",
+            difficulty_band=1,
+            generators=["linear_equation"],  # real registered generator
         )
     )
 
@@ -192,7 +444,8 @@ def build_sample_curriculum() -> Curriculum:
             name="Multi-Step Linear Equations",
             prerequisites=["linear_one_step"],
             verifier_domain="linear_equations",
-            generator="generate_linear_multi_step",
+            difficulty_band=2,
+            generators=["generate_linear_multi_step"],
         )
     )
 
@@ -202,7 +455,8 @@ def build_sample_curriculum() -> Curriculum:
             name="Distributive Property",
             prerequisites=["linear_one_step"],
             verifier_domain="expression_expansion",
-            generator="generate_distributive_property",
+            difficulty_band=2,
+            generators=["generate_distributive_property"],
         )
     )
 
@@ -212,7 +466,8 @@ def build_sample_curriculum() -> Curriculum:
             name="Factoring Quadratics",
             prerequisites=["distributive_property", "linear_multi_step"],
             verifier_domain="quadratics",
-            generator="generate_factoring_quadratics",
+            difficulty_band=3,
+            generators=["generate_factoring_quadratics"],
         )
     )
 
@@ -222,7 +477,8 @@ def build_sample_curriculum() -> Curriculum:
             name="Solve Quadratics",
             prerequisites=["factoring_quadratics"],
             verifier_domain="quadratics",
-            generator="generate_solve_quadratics",
+            difficulty_band=3,
+            generators=["quadratic_equation"],  # real registered generator
         )
     )
 

@@ -1,3 +1,5 @@
+![MathTutor Logo](Gemini_Generated_Image_68udv168udv168ud%20%281%29.png)
+
 # MathTutor
 
 A verified, adaptive math tutoring engine. It generates practice problems,

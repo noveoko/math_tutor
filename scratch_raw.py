@@ -7,7 +7,7 @@ v = SystemVerifier()
 cand = [Eq(x + y, 3), Eq(x - y, 1)]
 
 # Build whatever Target the test uses:
-from mathtutor.tests.test_verifiers import Target   # reuse the test's Target
+from tests.test_verifiers import Target   # reuse the test's Target
 t = Target([Eq(x + y, 3), Eq(x - y, 1)])
 
 # Find the internal parse method and call it directly, letting it raise:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.resources
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Set
@@ -483,3 +484,64 @@ def build_sample_curriculum() -> Curriculum:
     )
 
     return curriculum
+
+
+# ---------------------------------------------------------------------------
+# Bundled curricula (works for editable installs AND installed wheels/zips)
+# ---------------------------------------------------------------------------
+#
+# Curricula authored under src/mathtutor/data/curricula/*.json ship inside the
+# package. These helpers read them through importlib.resources rather than a
+# filesystem path, so loading works identically whether the package is run from
+# a source checkout or installed as a wheel. For curricula stored OUTSIDE the
+# package (e.g. a user-supplied file), use Curriculum.from_json_file(path).
+
+_CURRICULA_ANCHOR = "mathtutor"             # the package that ships the data
+_CURRICULA_SUBPATH = ("data", "curricula")  # ...data/curricula/<name>.json
+
+
+def _curricula_dir():
+    """Return a Traversable for the bundled curricula directory."""
+    return importlib.resources.files(_CURRICULA_ANCHOR).joinpath(*_CURRICULA_SUBPATH)
+
+
+def list_curricula() -> List[str]:
+    """Return the names (without the .json suffix) of every bundled curriculum.
+
+    Traverses package resources, so it works for source checkouts, installed
+    wheels, and zipimport alike. Returns an empty list if the data directory is
+    missing.
+    """
+    names: List[str] = []
+    try:
+        for entry in _curricula_dir().iterdir():
+            if entry.name.endswith(".json"):
+                names.append(entry.name[: -len(".json")])
+    except (FileNotFoundError, NotADirectoryError, OSError):
+        pass
+    return sorted(names)
+
+
+def load_curriculum(name: str) -> Curriculum:
+    """Load a curriculum bundled under ``mathtutor/data/curricula`` by name.
+
+    ``name`` may be given with or without the ``.json`` suffix::
+
+        calc = load_curriculum("calculus_intro")
+
+    The subject is set to the file stem (matching ``from_json_file``), so the
+    curriculum reports ``subject == "calculus_intro"`` even if the file omits a
+    ``subject`` field.
+
+    Raises:
+        CurriculumError: if no bundled curriculum has that name.
+    """
+    stem = name[: -len(".json")] if name.endswith(".json") else name
+    resource = _curricula_dir().joinpath(f"{stem}.json")
+    try:
+        text = resource.read_text(encoding="utf-8")
+    except (FileNotFoundError, OSError) as exc:
+        available = list_curricula()
+        hint = f" Available: {available}" if available else ""
+        raise CurriculumError(f"No bundled curriculum named {stem!r}.{hint}") from exc
+    return Curriculum.from_json(text, subject=stem)

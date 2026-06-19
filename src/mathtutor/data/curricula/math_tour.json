@@ -1,0 +1,209 @@
+{
+  "subject": "math_tour_prealgebra_to_calculus",
+  "knowledge_components": [
+
+    { "id": "number_sense", "name": "Number Sense",
+      "prerequisites": [], "verifier_domain": "arithmetic",
+      "difficulty_band": 1, "generators": ["gen_number_sense"] },
+
+    { "id": "addition_subtraction", "name": "Addition and Subtraction",
+      "prerequisites": ["number_sense"], "verifier_domain": "arithmetic",
+      "difficulty_band": 1, "generators": ["gen_add_sub"] },
+
+    { "id": "multiplication", "name": "Multiplication",
+      "prerequisites": ["addition_subtraction"], "verifier_domain": "arithmetic",
+      "difficulty_band": 1, "generators": ["gen_mult"] },
+
+    { "id": "division", "name": "Division",
+      "prerequisites": ["multiplication"], "verifier_domain": "arithmetic",
+      "difficulty_band": 1, "generators": ["gen_div"] },
+
+    { "id": "order_of_operations", "name": "Order of Operations",
+      "prerequisites": ["division"], "verifier_domain": "arithmetic",
+      "difficulty_band": 1, "generators": ["gen_pemdas"] },
+
+    { "id": "factors_multiples", "name": "Factors and Multiples",
+      "prerequisites": ["multiplication"], "verifier_domain": "number_theory",
+      "difficulty_band": 2, "generators": ["gen_factors"] },
+
+    { "id": "fractions_intro", "name": "Fractions",
+      "prerequisites": ["division"], "verifier_domain": "fractions",
+      "difficulty_band": 2, "generators": ["gen_fractions"] },
+
+    { "id": "fraction_operations", "name": "Fraction Operations",
+      "prerequisites": ["fractions_intro"], "verifier_domain": "fractions",
+      "difficulty_band": 2, "generators": ["gen_fraction_ops"] },
+
+    { "id": "decimals", "name": "Decimals",
+      "prerequisites": ["fractions_intro"], "verifier_domain": "decimals",
+      "difficulty_band": 2, "generators": ["gen_decimals"] },
+
+    { "id": "percentages", "name": "Percentages",
+      "prerequisites": ["decimals"], "verifier_domain": "percent",
+      "difficulty_band": 2, "generators": ["gen_percent"] },
+
+    { "id": "ratios", "name": "Ratios and Proportions",
+      "prerequisites": ["percentages"], "verifier_domain": "ratio",
+      "difficulty_band": 2, "generators": ["gen_ratio"] },
+
+    { "id": "negative_numbers", "name": "Negative Numbers",
+      "prerequisites": ["addition_subtraction"], "verifier_domain": "integers",
+      "difficulty_band": 2, "generators": ["gen_negatives"] },
+
+    { "id": "integer_operations", "name": "Integer Operations",
+      "prerequisites": ["negative_numbers"], "verifier_domain": "integers",
+      "difficulty_band": 2, "generators": ["gen_integer_ops"] },
+
+    { "id": "variables_intro", "name": "Variables",
+      "prerequisites": ["integer_operations"], "verifier_domain": "algebra",
+      "difficulty_band": 3, "generators": ["gen_variables"] },
+
+    { "id": "expressions", "name": "Algebraic Expressions",
+      "prerequisites": ["variables_intro"], "verifier_domain": "algebra",
+      "difficulty_band": 3, "generators": ["gen_expressions"] },
+
+    { "id": "simplifying", "name": "Simplifying Expressions",
+      "prerequisites": ["expressions"], "verifier_domain": "algebra",
+      "difficulty_band": 3, "generators": ["gen_simplify"] },
+
+    { "id": "equations_intro", "name": "Equations",
+      "prerequisites": ["simplifying"], "verifier_domain": "equations",
+      "difficulty_band": 3, "generators": ["gen_equations"] },
+
+    { "id": "one_step_equations", "name": "One-Step Equations",
+      "prerequisites": ["equations_intro"], "verifier_domain": "equations",
+      "difficulty_band": 3, "generators": ["gen_one_step"] },
+
+    { "id": "multi_step_equations", "name": "Multi-Step Equations",
+      "prerequisites": ["one_step_equations"], "verifier_domain": "equations",
+      "difficulty_band": 3, "generators": ["gen_multi_step"] },
+
+    { "id": "inequalities", "name": "Inequalities",
+      "prerequisites": ["multi_step_equations"], "verifier_domain": "inequalities",
+      "difficulty_band": 3, "generators": ["gen_ineq"] },
+
+    { "id": "coordinate_plane", "name": "Coordinate Plane",
+      "prerequisites": ["variables_intro"], "verifier_domain": "graphing",
+      "difficulty_band": 3, "generators": ["gen_coordinates"] },
+
+    { "id": "graph_points", "name": "Plotting Points",
+      "prerequisites": ["coordinate_plane"], "verifier_domain": "graphing",
+      "difficulty_band": 3, "generators": ["gen_points"] },
+
+    { "id": "linear_patterns", "name": "Linear Patterns",
+      "prerequisites": ["graph_points"], "verifier_domain": "functions",
+      "difficulty_band": 4, "generators": ["gen_linear_patterns"] },
+
+    { "id": "slope", "name": "Slope",
+      "prerequisites": ["linear_patterns"], "verifier_domain": "linear",
+      "difficulty_band": 4, "generators": ["gen_slope"] },
+
+    { "id": "linear_equations", "name": "Linear Equations",
+      "prerequisites": ["slope"], "verifier_domain": "linear",
+      "difficulty_band": 4, "generators": ["gen_linear_eq"] },
+
+    { "id": "graph_lines", "name": "Graphing Lines",
+      "prerequisites": ["linear_equations"], "verifier_domain": "linear",
+      "difficulty_band": 4, "generators": ["gen_graph_lines"] },
+
+    { "id": "systems", "name": "Systems of Equations",
+      "prerequisites": ["graph_lines"], "verifier_domain": "systems",
+      "difficulty_band": 4, "generators": ["gen_systems"] },
+
+    { "id": "exponents_intro", "name": "Exponents",
+      "prerequisites": ["multiplication"], "verifier_domain": "powers",
+      "difficulty_band": 4, "generators": ["gen_exponents"] },
+
+    { "id": "exponent_rules", "name": "Exponent Rules",
+      "prerequisites": ["exponents_intro"], "verifier_domain": "powers",
+      "difficulty_band": 4, "generators": ["gen_exp_rules"] },
+
+    { "id": "square_roots", "name": "Square Roots",
+      "prerequisites": ["exponent_rules"], "verifier_domain": "roots",
+      "difficulty_band": 4, "generators": ["gen_roots"] },
+
+    { "id": "polynomials_intro", "name": "Polynomials",
+      "prerequisites": ["simplifying"], "verifier_domain": "polynomials",
+      "difficulty_band": 5, "generators": ["gen_polynomials"] },
+
+    { "id": "polynomial_operations", "name": "Polynomial Operations",
+      "prerequisites": ["polynomials_intro"], "verifier_domain": "polynomials",
+      "difficulty_band": 5, "generators": ["gen_poly_ops"] },
+
+    { "id": "factoring", "name": "Factoring",
+      "prerequisites": ["polynomial_operations"], "verifier_domain": "factoring",
+      "difficulty_band": 5, "generators": ["gen_factoring"] },
+
+    { "id": "quadratics", "name": "Quadratic Equations",
+      "prerequisites": ["factoring"], "verifier_domain": "quadratics",
+      "difficulty_band": 5, "generators": ["gen_quadratics"] },
+
+    { "id": "functions_intro", "name": "Functions",
+      "prerequisites": ["linear_equations"], "verifier_domain": "functions",
+      "difficulty_band": 5, "generators": ["gen_functions"] },
+
+    { "id": "function_notation", "name": "Function Notation",
+      "prerequisites": ["functions_intro"], "verifier_domain": "functions",
+      "difficulty_band": 5, "generators": ["gen_function_notation"] },
+
+    { "id": "domain_range", "name": "Domain and Range",
+      "prerequisites": ["function_notation"], "verifier_domain": "functions",
+      "difficulty_band": 5, "generators": ["gen_domain_range"] },
+
+    { "id": "transformations", "name": "Function Transformations",
+      "prerequisites": ["domain_range"], "verifier_domain": "functions",
+      "difficulty_band": 6, "generators": ["gen_transformations"] },
+
+    { "id": "absolute_value", "name": "Absolute Value Functions",
+      "prerequisites": ["functions_intro"], "verifier_domain": "functions",
+      "difficulty_band": 6, "generators": ["gen_abs"] },
+
+    { "id": "piecewise", "name": "Piecewise Functions",
+      "prerequisites": ["absolute_value"], "verifier_domain": "functions",
+      "difficulty_band": 6, "generators": ["gen_piecewise"] },
+
+    { "id": "rational_functions", "name": "Rational Functions",
+      "prerequisites": ["functions_intro"], "verifier_domain": "functions",
+      "difficulty_band": 6, "generators": ["gen_rational"] },
+
+    { "id": "radical_functions", "name": "Radical Functions",
+      "prerequisites": ["square_roots"], "verifier_domain": "functions",
+      "difficulty_band": 6, "generators": ["gen_radicals"] },
+
+    { "id": "trig_intro", "name": "Basic Trigonometry",
+      "prerequisites": ["square_roots"], "verifier_domain": "trig",
+      "difficulty_band": 7, "generators": ["gen_trig_intro"] },
+
+    { "id": "unit_circle", "name": "Unit Circle",
+      "prerequisites": ["trig_intro"], "verifier_domain": "trig",
+      "difficulty_band": 7, "generators": ["gen_unit_circle"] },
+
+    { "id": "sequences", "name": "Sequences",
+      "prerequisites": ["functions_intro"], "verifier_domain": "sequences",
+      "difficulty_band": 7, "generators": ["gen_sequences"] },
+
+    { "id": "limits_intro", "name": "Introduction to Limits",
+      "prerequisites": ["functions_intro"], "verifier_domain": "limits",
+      "difficulty_band": 8, "generators": ["gen_limits_intro"] },
+
+    { "id": "continuity", "name": "Continuity",
+      "prerequisites": ["limits_intro"], "verifier_domain": "limits",
+      "difficulty_band": 8, "generators": ["gen_continuity"] },
+
+    { "id": "derivative_definition", "name": "Derivative Definition",
+      "prerequisites": ["limits_intro"], "verifier_domain": "derivatives",
+      "difficulty_band": 9, "generators": ["gen_derivative_def"] },
+
+    { "id": "derivative_rules", "name": "Derivative Rules",
+      "prerequisites": ["derivative_definition"], "verifier_domain": "derivatives",
+      "difficulty_band": 9, "generators": ["gen_derivative_rules"] },
+
+    { "id": "applications_derivatives", "name": "Applications of Derivatives",
+      "prerequisites": ["derivative_rules"], "verifier_domain": "derivatives",
+      "difficulty_band": 10, "generators": ["gen_derivative_apps"] },
+
+    { "id": "integral_intro", "name": "Introduction to Integrals",
+      "prerequisites": ["applications_derivatives"], "verifier_domain": "integrals",
+      "difficulty_band": 10, "generators": ["gen_integrals_intro"] }
+  ]
+}
